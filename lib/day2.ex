@@ -16,6 +16,8 @@ defmodule Day2 do
   @bag_parser ~r/(?<num1>\d+) (?<color1>\w+)(?:\s*,\s*(?<num2>\d+) (?<color2>\w+)(?:\s*,\s*(?<num3>\d+) (?<color3>\w+))?)?/iu
 
   def part1() do part1("./inputs/day2.txt") end
+  def part2() do part2("./inputs/day2.txt") end
+
   def part1(filename) do
     filename
     |> File.stream!()
@@ -23,6 +25,15 @@ defmodule Day2 do
     |> Enum.map(&parse_gamestr/1)
     |> Enum.filter(&is_possible/1)
     |> Enum.reduce(0, fn next, prev -> next.id + prev end)
+  end
+
+  def part2(filename) do
+    filename
+    |> File.stream!()
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(&parse_gamestr/1)
+    |> Enum.map(&calculate_power/1)
+    |> Enum.reduce(0, fn next, prev -> next + prev end)
   end
 
   def parse_gamestr(line) do
@@ -71,5 +82,15 @@ defmodule Day2 do
   def max_key(bags, color) do
     mb = bags |> Enum.max_by(fn bag -> bag[color] end)
     mb[color]
+  end
+
+  def calculate_power(game) do
+    max_bag = %Day2Bag{
+      red: max_key(game.bags, :red),
+      green: max_key(game.bags, :green),
+      blue: max_key(game.bags, :blue)
+    }
+
+    max_bag.red * max_bag.green * max_bag.blue
   end
 end
