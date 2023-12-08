@@ -1,11 +1,47 @@
-FROM ubuntu:jammy
+FROM elixir:1.15.7-otp-25
 
-RUN apt -y update && apt install -y software-properties-common
-RUN add-apt-repository -y ppa:rabbitmq/rabbitmq-erlang
-RUN apt -y update && apt -y upgrade && apt -y install git vim jq elixir erlang-dev erlang-xmerl sudo
-RUN echo "%devcontainer ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devcontainer.sudo
-RUN groupadd -g 65530 devcontainer && useradd -u 65530 -g 65530 -m devcontainer
+LABEL org.opencontainers.image.description="Elixir devcontainer for VSCode or Codespaces"
+LABEL org.opencontainers.image.source=https://github.com/jghiloni/aoc2023
 
-USER devcontainer:devcontainer
+# Avoid warnings by switching to noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-CMD ["bash"]
+# This Dockerfile adds a non-root user with sudo access. Use the "remoteUser"
+# property in devcontainer.json to use it. On Linux, the container user's GID/UIDs
+# will be updated to match your local UID/GID (when using the dockerFile property).
+# See https://aka.ms/vscode-remote/containers/non-root-user for details.
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+
+# Configure apt and install packages
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && apt-get -y install --no-install-recommends apt-utils dialog 2>&1 \
+    #
+     # Install bash tree
+    && apt-get -y install --no-install-recommends tree \
+    # Install git iproute2, procps, lsb-release (useful for CLI installs)
+    && apt-get -y install --no-install-recommends git iproute2 procps iproute2 lsb-release ca-certificates \
+    #
+    # Install other useful utilities
+    && apt-get -y install vim jq \
+    # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    # [Optional] Add sudo support for the non-root user
+    # && apt-get install -y sudo \
+    # && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME\
+    # && chmod 0440 /etc/sudoers.d/$USERNAME \
+    #
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to dialog for any ad-hoc use of apt-get
+ENV DEBIAN_FRONTEND=dialog
+
+USER vscode
+ENV HOME /home/vscode
