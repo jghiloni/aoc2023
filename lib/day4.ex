@@ -2,6 +2,10 @@ defmodule Day4Card do
   defstruct [:id, :winning_numbers, :my_numbers]
 end
 
+defmodule Day4Copies do
+  defstruct [:id, :copies]
+end
+
 defmodule Day4 do
   def part1() do
     part1("./inputs/day4.txt")
@@ -12,7 +16,11 @@ defmodule Day4 do
   end
 
   def setup(filename) do
-    filename |> File.stream!() |> Enum.map(&String.trim/1) |> Enum.map(&parse_card/1)
+    filename
+    |> File.stream!()
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(&parse_card/1)
+    |> Enum.reduce(%{}, &Map.merge/2)
   end
 
   def part1(filename) do
@@ -22,31 +30,49 @@ defmodule Day4 do
   end
 
   def part2(filename) do
-    cards =
-      setup(filename)
+    cards = setup(filename)
 
-    max_id = Enum.max_by(cards, fn c -> c.id end).id
-
-    map =
+    copies =
       cards
-      |> Enum.map(&get_win_range(&1, max_id))
-      |> Enum.reduce(%{}, &Map.merge/2)
-      |> IO.inspect()
+      |> Enum.map(&make_copy/1)
+      |> Enum.reduce(%{}, fn copy, acc -> Map.merge(acc, copy) end)
 
-    Map.keys(map)
-    |> Enum.map(fn id ->
-      id..1
-      |> Enum.map(fn i ->
-        list = Map.get(map, i)
+    Map.keys(copies)
+    |> Enum.sort()
+    |> update_copies(copies, cards)
+    |> Enum.map(fn {_, copy} -> copy.copies end)
+    |> Enum.sum()
+  end
 
-        if list != nil do
-          Enum.find_value(list, 0, fn x -> if id == x, do: 1, else: 0 end)
-        else
-          0
-        end
-      end)
-      |> Enum.sum()
-    end)
+  def make_copy({id, _}) do
+    %{id => %Day4Copies{id: id, copies: 1}}
+  end
+
+  def update_copies(ids, copies, _cardmap) when length(ids) == 0, do: copies
+
+  def update_copies(ids, copies, cardmap) do
+    [first | rest] = ids
+    IO.inspect({first, copies})
+
+    card = Map.get(cardmap, first)
+    copy = Map.get(copies, first)
+
+    if card == nil do
+      update_copies(rest, copies, cardmap)
+    else
+      updated_copies =
+        win_range(card)
+        |> Enum.reduce(copies, fn id, acc ->
+          {_, acc} =
+            Map.get_and_update!(acc, id, fn c ->
+              {c, %Day4Copies{id: id, copies: c.copies + copy.copies}}
+            end)
+
+          acc
+        end)
+
+      update_copies(rest, updated_copies, cardmap)
+    end
   end
 
   def parse_card(line) do
@@ -63,21 +89,23 @@ defmodule Day4 do
       |> Enum.map(fn plist -> plist |> Enum.map(fn {n, _} -> n end) end)
       |> Enum.map(&MapSet.new/1)
 
-    %Day4Card{id: id, winning_numbers: winning, my_numbers: mine}
+    %{id => %Day4Card{id: id, winning_numbers: winning, my_numbers: mine}}
   end
 
-  def get_card_score(card) do
+  def get_card_score({_, card}) do
     my_winning_numbers = MapSet.intersection(card.winning_numbers, card.my_numbers)
     (2 ** (MapSet.size(my_winning_numbers) - 1)) |> trunc
   end
 
-  def get_win_range(card, max_id) do
-    size = MapSet.intersection(card.winning_numbers, card.my_numbers) |> MapSet.size()
+  def win_range(card) do
+    count =
+      MapSet.intersection(card.winning_numbers, card.my_numbers)
+      |> MapSet.size()
 
-    if size > 0 do
-      Map.put(%{}, card.id, min(max_id, card.id + 1)..(card.id + size) |> Range.to_list())
+    if count == 0 do
+      []
     else
-      Map.put(%{}, card.id, [card.id])
+      (card.id + 1)..(card.id + count) |> Range.to_list()
     end
   end
 end
