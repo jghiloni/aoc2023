@@ -52,8 +52,6 @@ defmodule Day4 do
 
   def update_copies(ids, copies, cardmap) do
     [first | rest] = ids
-    IO.inspect({first, copies})
-
     card = Map.get(cardmap, first)
     copy = Map.get(copies, first)
 
